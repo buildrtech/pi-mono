@@ -1425,6 +1425,30 @@ export class SessionManager {
 	}
 
 	/**
+	 * Create an in-memory session from previously stored entries (no file
+	 * persistence). The entries must include a session header. Entry ids,
+	 * parent links, labels, and compaction references are preserved verbatim —
+	 * the same semantics as forkFrom, without touching the filesystem.
+	 *
+	 * For embedders that persist session history in their own storage
+	 * (database, KV, object store) and need to rehydrate a SessionManager
+	 * without a session file.
+	 * @param entries Full entry list including the session header
+	 * @param cwdOverride Optional cwd override instead of the session header cwd
+	 */
+	static fromEntries(entries: FileEntry[], cwdOverride?: string): SessionManager {
+		const header = entries.find((e) => e.type === "session") as SessionHeader | undefined;
+		if (!header) {
+			throw new Error("Cannot create session from entries: no session header");
+		}
+		const manager = new SessionManager(cwdOverride ?? header.cwd, "", undefined, false);
+		manager.sessionId = header.id;
+		manager.fileEntries = [...entries];
+		manager._buildIndex();
+		return manager;
+	}
+
+	/**
 	 * Fork a session from another project directory into the current project.
 	 * Creates a new session in the target cwd with the full history from the source session.
 	 * @param sourcePath Path to the source session file
